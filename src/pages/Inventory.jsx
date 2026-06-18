@@ -39,7 +39,6 @@ export const Inventory = () => {
   const [modalType, setModalType] = useState('add'); // 'add' | 'edit'
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [isValuationOpen, setIsValuationOpen] = useState(false);
-  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // Form State
   const [itemForm, setItemForm] = useState({
@@ -334,15 +333,6 @@ export const Inventory = () => {
           >
             <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
             <span>Valuation Report</span>
-          </button>
-
-          {/* Audit Stock */}
-          <button
-            onClick={() => setIsAuditOpen(true)}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-500/10"
-          >
-            <ClipboardCheck className="w-4 h-4" />
-            <span>Audit Stock</span>
           </button>
         </div>
       </div>
@@ -1116,83 +1106,6 @@ export const Inventory = () => {
         document.body
       )}
 
-      {/* Audit Stock Portal Modal */}
-      {isAuditOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-xl w-full p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2 text-emerald-600">
-                <ClipboardCheck className="w-5 h-5" />
-                <h3 className="font-extrabold text-slate-800 text-base">Physical Inventory Audit Sheet</h3>
-              </div>
-              <button
-                onClick={() => setIsAuditOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-              <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                Use this formatted audit sheet for manual physical stock counts and reconciliation verification. You can trigger a print dialog using your browser commands.
-              </p>
-
-              <div className="border border-slate-200 rounded-2xl overflow-hidden p-4 bg-slate-50/20 space-y-4">
-                <div className="flex justify-between items-start text-xs border-b border-slate-100 pb-3 font-semibold text-slate-500">
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">GreenAdmin Enterprises</p>
-                    <p className="mt-0.5">Physical Audit Log sheet</p>
-                  </div>
-                  <div className="text-right">
-                    <p>Date: {new Date().toLocaleDateString()}</p>
-                    <p className="mt-0.5">Audited By: ________________</p>
-                  </div>
-                </div>
-
-                <table className="w-full text-left text-[11px] font-semibold text-slate-700">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-450 uppercase pb-2">
-                      <th className="py-2 px-1">SKU</th>
-                      <th className="py-2 px-1">Product Name</th>
-                      <th className="py-2 px-1">Warehouse</th>
-                      <th className="py-2 px-1 text-right">Expected Qty</th>
-                      <th className="py-2 px-1 text-right w-28">Physical Count</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {inventory.map(item => (
-                      <tr key={item.sku} className="py-2">
-                        <td className="py-2.5 px-1 font-mono text-[10.5px] text-slate-450">{item.sku}</td>
-                        <td className="py-2.5 px-1 text-slate-800 font-bold">{item.name}</td>
-                        <td className="py-2.5 px-1 text-slate-500">{item.warehouse}</td>
-                        <td className="py-2.5 px-1 text-right text-slate-900 font-bold pr-2">{item.quantity}</td>
-                        <td className="py-2.5 px-1 text-right text-slate-300 font-light pr-2"> [ &nbsp; &nbsp; &nbsp; &nbsp; ] </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="flex justify-end items-center space-x-3 pt-2">
-              <button
-                onClick={() => setIsAuditOpen(false)}
-                className="px-6 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-colors"
-              >
-                Print Sheet
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 };

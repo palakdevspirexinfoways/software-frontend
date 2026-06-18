@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import {
   TrendingUp,
@@ -18,46 +18,15 @@ import {
 
 export const Dashboard = ({ onManageOrders }) => {
   const [activeTab, setActiveTab] = useState('sales');
-  const [recentOrders, setRecentOrders] = useState([]);
   const [allInvoices, setAllInvoices] = useState([]);
-  const [stats, setStats] = useState([
-    {
-      id: 'sales',
-      title: 'Total Sales',
-      value: '0 units',
-      change: '+0.0%',
-      isPositive: true,
-      icon: ShoppingBag,
-      color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
-    },
-    {
-      id: 'revenue',
-      title: 'Total Revenue',
-      value: '₹0.00',
-      change: '+0.0%',
-      isPositive: true,
-      icon: DollarSign,
-      color: 'text-teal-600 bg-teal-50 border-teal-100'
-    },
-    {
-      id: 'customers',
-      title: 'Total Customers',
-      value: '0 users',
-      change: '+0.0%',
-      isPositive: true,
-      icon: Users,
-      color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
-    },
-    {
-      id: 'refunds',
-      title: 'Total Products',
-      value: '0 items',
-      change: 'Live',
-      isPositive: true,
-      icon: RotateCcw,
-      color: 'text-slate-600 bg-slate-50 border-slate-200'
-    },
-  ]);
+  const [allProductsCount, setAllProductsCount] = useState(0);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [appliedDateRange, setAppliedDateRange] = useState({ start: '', end: '' });
+
+  const handleApplyFilter = () => {
+    setAppliedDateRange({ start: startDate, end: endDate });
+  };
 
   // Fetch Dashboard Stats and Orders
   const fetchDashboardData = async () => {
@@ -67,62 +36,9 @@ export const Dashboard = ({ onManageOrders }) => {
 
       if (Array.isArray(invoices)) {
         setAllInvoices(invoices);
-        // Map recent orders (take last 5)
-        const orders = invoices.slice(0, 5).map(inv => ({
-          id: inv.invoiceId,
-          customer: inv.client,
-          item: inv.items && inv.items.length > 0 ? inv.items.map(item => item.product).join(', ') : 'No items',
-          price: '₹' + inv.grandTotal.toLocaleString('en-IN'),
-          status: inv.delivery || 'Processing',
-          payment: inv.payment || 'Pending',
-          date: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-        }));
-        setRecentOrders(orders);
-
-        // Compute stats
-        const revenue = invoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-        const salesUnits = invoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
-        const uniqueCustomers = new Set(invoices.map(inv => inv.client)).size;
-        const totalProducts = Array.isArray(products) ? products.length : 0;
-
-        setStats([
-          {
-            id: 'sales',
-            title: 'Total Sales',
-            value: `${salesUnits.toLocaleString('en-IN')} units`,
-            change: 'Live',
-            isPositive: true,
-            icon: ShoppingBag,
-            color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
-          },
-          {
-            id: 'revenue',
-            title: 'Total Revenue',
-            value: '₹' + revenue.toLocaleString('en-IN'),
-            change: 'Live',
-            isPositive: true,
-            icon: DollarSign,
-            color: 'text-teal-600 bg-teal-50 border-teal-100'
-          },
-          {
-            id: 'customers',
-            title: 'Total Customers',
-            value: `${uniqueCustomers.toLocaleString('en-IN')} users`,
-            change: 'Live',
-            isPositive: true,
-            icon: Users,
-            color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
-          },
-          {
-            id: 'refunds',
-            title: 'Total Products',
-            value: `${totalProducts.toLocaleString('en-IN')} items`,
-            change: 'Live',
-            isPositive: true,
-            icon: RotateCcw,
-            color: 'text-slate-600 bg-slate-50 border-slate-200'
-          }
-        ]);
+      }
+      if (Array.isArray(products)) {
+        setAllProductsCount(products.length);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -133,24 +49,105 @@ export const Dashboard = ({ onManageOrders }) => {
     fetchDashboardData();
   }, []);
 
+  const filteredInvoices = useMemo(() => {
+    const { start, end } = appliedDateRange;
+    if (!start && !end) return allInvoices;
+    
+    return allInvoices.filter(inv => {
+      if (!inv.issueDate) return false;
+      const d = new Date(inv.issueDate);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const invDateStr = `${yyyy}-${mm}-${dd}`;
+      
+      if (start && end) {
+        return invDateStr >= start && invDateStr <= end;
+      } else if (start && !end) {
+        return invDateStr === start;
+      } else if (!start && end) {
+        return invDateStr === end;
+      }
+      return true;
+    });
+  }, [allInvoices, appliedDateRange]);
+
+  const recentOrders = useMemo(() => {
+    return filteredInvoices.slice(0, 5).map(inv => ({
+      id: inv.invoiceId,
+      customer: inv.client,
+      item: inv.items && inv.items.length > 0 ? inv.items.map(item => item.product).join(', ') : 'No items',
+      price: '₹' + inv.grandTotal.toLocaleString('en-IN'),
+      status: inv.delivery || 'Processing',
+      payment: inv.payment || 'Pending',
+      date: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+    }));
+  }, [filteredInvoices]);
+
+  const stats = useMemo(() => {
+    const revenue = filteredInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+    const salesUnits = filteredInvoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
+    const uniqueCustomers = new Set(filteredInvoices.map(inv => inv.client)).size;
+    const isFiltered = appliedDateRange.start || appliedDateRange.end;
+    
+    return [
+      {
+        id: 'sales',
+        title: 'Total Sales',
+        value: `${salesUnits.toLocaleString('en-IN')} units`,
+        change: isFiltered ? 'Filtered' : 'Live',
+        isPositive: true,
+        icon: ShoppingBag,
+        color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
+      },
+      {
+        id: 'revenue',
+        title: 'Total Revenue',
+        value: '₹' + revenue.toLocaleString('en-IN'),
+        change: isFiltered ? 'Filtered' : 'Live',
+        isPositive: true,
+        icon: DollarSign,
+        color: 'text-teal-600 bg-teal-50 border-teal-100'
+      },
+      {
+        id: 'customers',
+        title: 'Total Customers',
+        value: `${uniqueCustomers.toLocaleString('en-IN')} users`,
+        change: isFiltered ? 'Filtered' : 'Live',
+        isPositive: true,
+        icon: Users,
+        color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
+      },
+      {
+        id: 'refunds',
+        title: 'Total Products',
+        value: `${allProductsCount.toLocaleString('en-IN')} items`,
+        change: 'Live',
+        isPositive: true,
+        icon: RotateCcw,
+        color: 'text-slate-600 bg-slate-50 border-slate-200'
+      }
+    ];
+  }, [filteredInvoices, appliedDateRange, allProductsCount]);
+
   const getDonutData = () => {
-    if (!allInvoices.length) return { sale: 0, distribute: 0, return: 0, total: 0 };
+    if (!filteredInvoices.length) return { sale: 0, distribute: 0, return: 0, total: 0 };
     let sale = 0, distribute = 0, ret = 0;
-    allInvoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       if (inv.delivery === 'Delivered') sale++;
       else if (inv.delivery === 'Cancelled') ret++;
       else distribute++;
     });
-    const total = allInvoices.length;
+    const total = filteredInvoices.length;
     return { sale: sale/total, distribute: distribute/total, return: ret/total, total };
   };
 
   const renderActiveGraph = () => {
     // Generate dummy arrays based on actual data counts so the graphs look alive
-    const salesCount = allInvoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
-    const revCount = allInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-    const custCount = new Set(allInvoices.map(inv => inv.client)).size;
-    const retCount = allInvoices.filter(inv => inv.delivery === 'Cancelled').length;
+    const salesCount = filteredInvoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
+    const revCount = filteredInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+    const custCount = new Set(filteredInvoices.map(inv => inv.client)).size;
+    const retCount = filteredInvoices.filter(inv => inv.delivery === 'Cancelled').length;
 
     switch (activeTab) {
       case 'sales':
@@ -257,10 +254,29 @@ export const Dashboard = ({ onManageOrders }) => {
           <p className="text-sm text-slate-500 mt-1">Real-time metrics, circular analytics, and recent orders.</p>
         </div>
 
-        <button className="flex items-center space-x-1.5 px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 text-sm font-semibold transition-all cursor-pointer shadow-sm">
-          <Calendar className="w-4.5 h-4.5" />
-          <span>Last 30 Days</span>
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-600 text-sm font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+            <span className="text-slate-400 font-bold text-xs">to</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-600 text-sm font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+          <button 
+            onClick={handleApplyFilter}
+            className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-emerald-700 transition-colors"
+          >
+            Apply Filter
+          </button>
+        </div>
       </div>
 
       {/* Interactive Stats Grid */}
