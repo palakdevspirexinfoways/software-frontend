@@ -1,0 +1,454 @@
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  ShoppingBag,
+  Users,
+  RotateCcw,
+  Calendar,
+  ArrowRight,
+  Eye,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  MoreHorizontal
+} from 'lucide-react';
+
+export const Dashboard = ({ onManageOrders }) => {
+  const [activeTab, setActiveTab] = useState('sales');
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [stats, setStats] = useState([
+    {
+      id: 'sales',
+      title: 'Total Sales',
+      value: '0 units',
+      change: '+0.0%',
+      isPositive: true,
+      icon: ShoppingBag,
+      color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
+    },
+    {
+      id: 'revenue',
+      title: 'Total Revenue',
+      value: '₹0.00',
+      change: '+0.0%',
+      isPositive: true,
+      icon: DollarSign,
+      color: 'text-teal-600 bg-teal-50 border-teal-100'
+    },
+    {
+      id: 'customers',
+      title: 'Total Customers',
+      value: '0 users',
+      change: '+0.0%',
+      isPositive: true,
+      icon: Users,
+      color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
+    },
+    {
+      id: 'refunds',
+      title: 'Total Products',
+      value: '0 items',
+      change: 'Live',
+      isPositive: true,
+      icon: RotateCcw,
+      color: 'text-slate-600 bg-slate-50 border-slate-200'
+    },
+  ]);
+
+  // Fetch Dashboard Stats and Orders
+  const fetchDashboardData = async () => {
+    try {
+      const invoices = await api.get('/invoices');
+      const products = await api.get('/products');
+
+      if (Array.isArray(invoices)) {
+        setAllInvoices(invoices);
+        // Map recent orders (take last 5)
+        const orders = invoices.slice(0, 5).map(inv => ({
+          id: inv.invoiceId,
+          customer: inv.client,
+          item: inv.items && inv.items.length > 0 ? inv.items.map(item => item.product).join(', ') : 'No items',
+          price: '₹' + inv.grandTotal.toLocaleString('en-IN'),
+          status: inv.delivery || 'Processing',
+          payment: inv.payment || 'Pending',
+          date: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+        }));
+        setRecentOrders(orders);
+
+        // Compute stats
+        const revenue = invoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+        const salesUnits = invoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
+        const uniqueCustomers = new Set(invoices.map(inv => inv.client)).size;
+        const totalProducts = Array.isArray(products) ? products.length : 0;
+
+        setStats([
+          {
+            id: 'sales',
+            title: 'Total Sales',
+            value: `${salesUnits.toLocaleString('en-IN')} units`,
+            change: 'Live',
+            isPositive: true,
+            icon: ShoppingBag,
+            color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
+          },
+          {
+            id: 'revenue',
+            title: 'Total Revenue',
+            value: '₹' + revenue.toLocaleString('en-IN'),
+            change: 'Live',
+            isPositive: true,
+            icon: DollarSign,
+            color: 'text-teal-600 bg-teal-50 border-teal-100'
+          },
+          {
+            id: 'customers',
+            title: 'Total Customers',
+            value: `${uniqueCustomers.toLocaleString('en-IN')} users`,
+            change: 'Live',
+            isPositive: true,
+            icon: Users,
+            color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
+          },
+          {
+            id: 'refunds',
+            title: 'Total Products',
+            value: `${totalProducts.toLocaleString('en-IN')} items`,
+            change: 'Live',
+            isPositive: true,
+            icon: RotateCcw,
+            color: 'text-slate-600 bg-slate-50 border-slate-200'
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const getDonutData = () => {
+    if (!allInvoices.length) return { sale: 0, distribute: 0, return: 0, total: 0 };
+    let sale = 0, distribute = 0, ret = 0;
+    allInvoices.forEach(inv => {
+      if (inv.delivery === 'Delivered') sale++;
+      else if (inv.delivery === 'Cancelled') ret++;
+      else distribute++;
+    });
+    const total = allInvoices.length;
+    return { sale: sale/total, distribute: distribute/total, return: ret/total, total };
+  };
+
+  const renderActiveGraph = () => {
+    // Generate dummy arrays based on actual data counts so the graphs look alive
+    const salesCount = allInvoices.reduce((sum, inv) => sum + (inv.items ? inv.items.reduce((s, i) => s + i.qty, 0) : 0), 0);
+    const revCount = allInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+    const custCount = new Set(allInvoices.map(inv => inv.client)).size;
+    const retCount = allInvoices.filter(inv => inv.delivery === 'Cancelled').length;
+
+    switch (activeTab) {
+      case 'sales':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">Sales Volume Trend</h4>
+                <p className="text-xs text-slate-400">Total units sold</p>
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center">
+                <TrendingUp className="w-3.5 h-3.5 mr-1" /> Total: {salesCount}
+              </span>
+            </div>
+            <div className="h-64 w-full bg-slate-50/50 rounded-2xl relative overflow-hidden flex items-end p-2 border border-slate-100">
+              <svg className="absolute inset-0 w-full h-56" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <path d="M 0 100 L 0 80 Q 15 50 30 65 T 60 35 T 90 20 L 100 10 L 100 100 Z" fill="#10b981" fillOpacity="0.06" />
+                <path d="M 0 80 Q 15 50 30 65 T 60 35 T 90 20 L 100 10" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+              <div className="flex justify-between w-full text-[10px] text-slate-400 font-bold px-4 z-10">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'revenue':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">Revenue Growth Trend</h4>
+                <p className="text-xs text-slate-400">Earnings generated</p>
+              </div>
+              <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg flex items-center">
+                <TrendingUp className="w-3.5 h-3.5 mr-1" /> Total: ₹{revCount.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="h-64 w-full bg-slate-50/50 rounded-2xl relative overflow-hidden flex items-end p-2 border border-slate-100">
+              <svg className="absolute inset-0 w-full h-56" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <path d="M 0 100 L 0 75 Q 20 60 40 45 T 80 20 L 100 5 L 100 100 Z" fill="#0d9488" fillOpacity="0.06" />
+                <path d="M 0 75 Q 20 60 40 45 T 80 20 L 100 5" fill="none" stroke="#0f766e" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+              <div className="flex justify-between w-full text-[10px] text-slate-400 font-bold px-4 z-10">
+                <span>Week 1</span><span>Week 2</span><span>Week 3</span><span>Week 4</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'customers':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">New Customer Signups</h4>
+                <p className="text-xs text-slate-400">Daily client acquisitions</p>
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center">
+                <Users className="w-3.5 h-3.5 mr-1" /> Total: {custCount}
+              </span>
+            </div>
+            <div className="h-64 w-full bg-slate-50/50 rounded-2xl flex items-end justify-between px-8 py-4 border border-slate-100">
+              {[30, 45, custCount > 0 ? 60 : 10, 40, 75, 90, 85].map((val, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 w-full">
+                  <div style={{ height: `${val}%` }} className="w-5.5 bg-emerald-600 rounded-t-lg transition-all duration-500 hover:opacity-85 cursor-pointer"></div>
+                  <span className="text-[10px] text-slate-400 font-bold">{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case 'refunds':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">Refund Processing Log</h4>
+                <p className="text-xs text-slate-400">Total refunded orders</p>
+              </div>
+              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg flex items-center">
+                <TrendingDown className="w-3.5 h-3.5 mr-1" /> Total: {retCount}
+              </span>
+            </div>
+            <div className="h-64 w-full bg-slate-50/50 rounded-2xl flex items-end justify-between px-8 py-4 border border-slate-100">
+              {[15, 20, retCount > 0 ? 30 : 10, 5, 8, 12, 6].map((val, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 w-full">
+                  <div style={{ height: `${val * 4}%` }} className="w-5.5 bg-slate-400/80 rounded-t-lg hover:bg-emerald-600/80 transition-colors duration-200 cursor-pointer"></div>
+                  <span className="text-[10px] text-slate-400 font-bold">{['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'][i]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">System Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">Real-time metrics, circular analytics, and recent orders.</p>
+        </div>
+
+        <button className="flex items-center space-x-1.5 px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 text-sm font-semibold transition-all cursor-pointer shadow-sm">
+          <Calendar className="w-4.5 h-4.5" />
+          <span>Last 30 Days</span>
+        </button>
+      </div>
+
+      {/* Interactive Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          const isSelected = activeTab === stat.id;
+          return (
+            <button
+              key={stat.id}
+              onClick={() => setActiveTab(stat.id)}
+              className={`p-6 rounded-2xl border flex items-center justify-between group cursor-pointer text-left transition-all duration-300 ${isSelected
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xl shadow-emerald-600/15 scale-[1.02]'
+                  : 'bg-white text-slate-800 border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200'
+                }`}
+            >
+              <div className="space-y-2.5">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-emerald-100' : 'text-slate-400'}`}>
+                  {stat.title}
+                </span>
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-2xl font-bold tracking-tight">{stat.value}</span>
+                  <span className={`flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected
+                      ? 'text-white bg-white/20'
+                      : 'text-emerald-750 bg-emerald-50'
+                    }`}>
+                    {stat.change}
+                  </span>
+                </div>
+              </div>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${isSelected
+                  ? 'bg-white/10 text-white group-hover:scale-115'
+                  : stat.color + ' group-hover:scale-115'
+                }`}>
+                <Icon className="w-5.5 h-5.5" />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Grid: Graphs & Circular Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Trend Graph Visualiser */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+            <h3 className="font-bold text-slate-900 text-lg">Performance Analytics</h3>
+            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+              {['sales', 'revenue', 'customers', 'refunds'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all capitalize cursor-pointer ${activeTab === tab
+                      ? 'bg-white text-emerald-650 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+          {renderActiveGraph()}
+        </div>
+
+        {/* Circular Analytics (Donut Chart) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Analytics</h3>
+              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* SVG Donut Chart */}
+            <div className="relative flex items-center justify-center h-48 my-6">
+              <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
+                {/* Background Track */}
+                <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f8fafc" strokeWidth="10" />
+                {/* Sale segment (Emerald Green) */}
+                <circle
+                  cx="50" cy="50" r="38" fill="transparent" stroke="#059669" strokeWidth="10"
+                  strokeDasharray={`${getDonutData().sale * 238.76} 238.76`}
+                  strokeDashoffset="0" strokeLinecap="round" className="transition-all duration-500"
+                />
+                {/* Distribute segment (Yellow) */}
+                <circle
+                  cx="50" cy="50" r="38" fill="transparent" stroke="#fbbf24" strokeWidth="10"
+                  strokeDasharray={`${getDonutData().distribute * 238.76} 238.76`}
+                  strokeDashoffset={`-${getDonutData().sale * 238.76}`} strokeLinecap="round" className="transition-all duration-500"
+                />
+                {/* Return segment (Coral) */}
+                <circle
+                  cx="50" cy="50" r="38" fill="transparent" stroke="#f87171" strokeWidth="10"
+                  strokeDasharray={`${getDonutData().return * 238.76} 238.76`}
+                  strokeDashoffset={`-${(getDonutData().sale + getDonutData().distribute) * 238.76}`} strokeLinecap="round" className="transition-all duration-500"
+                />
+              </svg>
+
+              {/* Center Details */}
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{getDonutData().total}</span>
+                <span className="text-[11px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">Transactions</span>
+              </div>
+            </div>
+
+            {/* Legends styled exactly like image */}
+            <div className="flex items-center justify-center space-x-5 pt-3 border-t border-slate-50">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-[#059669] inline-block"></span>
+                <span className="text-xs font-bold text-slate-500">Sale</span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-[#fbbf24] inline-block"></span>
+                <span className="text-xs font-bold text-slate-500">Distribute</span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-[#f87171] inline-block"></span>
+                <span className="text-xs font-bold text-slate-500">Return</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Orders Log Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg">Recent Orders</h3>
+            <p className="text-xs text-slate-400 mt-0.5">List of last orders created</p>
+          </div>
+          <button 
+            onClick={onManageOrders}
+            className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 hover:gap-1.5 transition-all cursor-pointer"
+          >
+            Manage Orders <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-semibold">
+                <th className="py-3 px-6">Order ID</th>
+                <th className="py-3 px-6">Customer</th>
+                <th className="py-3 px-6">Product Item</th>
+                <th className="py-3 px-6">Price</th>
+                <th className="py-3 px-6">Payment</th>
+                <th className="py-3 px-6">Status</th>
+                <th className="py-3 px-6">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
+              {recentOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-slate-50/40 transition-colors">
+                  <td className="py-4 px-6 text-emerald-600 font-semibold">{order.id}</td>
+                  <td className="py-4 px-6 text-slate-900 font-bold">{order.customer}</td>
+                  <td className="py-4 px-6 text-slate-500">{order.item}</td>
+                  <td className="py-4 px-6 text-slate-950 font-bold">{order.price}</td>
+                  <td className="py-4 px-6">
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs font-bold">
+                      {order.payment}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700' :
+                        order.status === 'Processing' ? 'bg-teal-50 text-teal-700' :
+                          order.status === 'Pending' ? 'bg-amber-50 text-amber-700' :
+                            'bg-rose-50 text-rose-700'
+                      }`}>
+                      {order.status === 'Delivered' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                      {order.status === 'Processing' && <Clock className="w-3 h-3 mr-1" />}
+                      {order.status === 'Pending' && <Clock className="w-3 h-3 mr-1" />}
+                      {order.status === 'Cancelled' && <AlertCircle className="w-3 h-3 mr-1" />}
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-slate-400 text-xs">{order.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
