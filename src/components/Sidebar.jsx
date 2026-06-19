@@ -16,7 +16,7 @@ import {
 export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
   const [salesOpen, setSalesOpen] = useState(activePage === 'sales' || activePage === 'billing');
   const [productsOpen, setProductsOpen] = useState(activePage === 'products' || activePage === 'categories');
-  
+
   // Safe parsing of user data
   let user = { name: 'Admin User', email: 'admin@gmail.com' };
   try {
@@ -37,14 +37,14 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
   ];
 
   return (
-    <aside className="w-64 bg-[#009966] text-white h-screen flex flex-col fixed left-0 top-0 border-r border-[#009966] shadow-lg z-20">
+    <aside className="w-64 bg-white text-slate-800 h-screen flex flex-col fixed left-0 top-0 border-r border-slate-100 z-20">
       {/* Brand Header */}
-      <div className="h-16 flex items-center px-6 border-b border-emerald-800/60 bg-emerald-950/20">
+      <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white shadow-sm">
         <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shadow-lg">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-600/20">
             <LayoutDashboard className="w-5 h-5 text-white" />
           </div>
-          <span className="text-lg font-extrabold text-white tracking-tight">
+          <span className="text-lg font-extrabold text-slate-900 tracking-tight">
             GreenAdmin
           </span>
         </div>
@@ -70,18 +70,18 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
                 <button
                   onClick={toggleOpen}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-250 cursor-pointer group ${isSubActive
-                    ? 'bg-white/15 text-white shadow-md shadow-black/5'
-                    : 'text-emerald-100/85 hover:bg-white/5 hover:text-white'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700 hover:shadow-sm'
                     }`}
                 >
                   <div className="flex items-center min-w-0">
-                    <Icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-colors ${isSubActive ? 'text-white' : 'text-emerald-300 group-hover:text-white'}`} />
+                    <Icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-colors ${isSubActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-600'}`} />
                     <span className="truncate">{item.name}</span>
                   </div>
                   {isOpen ? (
-                    <ChevronDown className="w-4 h-4 text-emerald-250" />
+                    <ChevronDown className={`w-4 h-4 ${isSubActive ? 'text-white/80' : 'text-slate-400'}`} />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-emerald-250" />
+                    <ChevronRight className={`w-4 h-4 ${isSubActive ? 'text-white/80' : 'text-slate-400'}`} />
                   )}
                 </button>
 
@@ -93,21 +93,21 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
                         <button
                           onClick={() => setActivePage('sales')}
                           className={`w-full flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activePage === 'sales'
-                            ? 'bg-white/10 text-white'
-                            : 'text-emerald-100/70 hover:bg-white/5 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700'
                             }`}
                         >
-                          <ListTodo className="w-4 h-4 mr-2" />
+                          <ListTodo className={`w-4 h-4 mr-2 ${activePage === 'sales' ? 'text-white' : 'text-slate-400'}`} />
                           <span>Order Records</span>
                         </button>
                         <button
                           onClick={() => setActivePage('billing')}
                           className={`w-full flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activePage === 'billing'
-                            ? 'bg-white/10 text-white'
-                            : 'text-emerald-100/70 hover:bg-white/5 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700'
                             }`}
                         >
-                          <PlusCircle className="w-4 h-4 mr-2" />
+                          <PlusCircle className={`w-4 h-4 mr-2 ${activePage === 'billing' ? 'text-white' : 'text-slate-400'}`} />
                           <span>New Billing</span>
                         </button>
                       </>
@@ -116,21 +116,21 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
                         <button
                           onClick={() => setActivePage('products')}
                           className={`w-full flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activePage === 'products'
-                            ? 'bg-white/10 text-white'
-                            : 'text-emerald-100/70 hover:bg-white/5 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700'
                             }`}
                         >
-                          <ListTodo className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <ListTodo className={`w-4 h-4 mr-2 flex-shrink-0 ${activePage === 'products' ? 'text-white' : 'text-slate-400'}`} />
                           <span className="truncate">Products</span>
                         </button>
                         <button
                           onClick={() => setActivePage('categories')}
                           className={`w-full flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activePage === 'categories'
-                            ? 'bg-white/10 text-white'
-                            : 'text-emerald-100/70 hover:bg-white/5 hover:text-white'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700'
                             }`}
                         >
-                          <PlusCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <PlusCircle className={`w-4 h-4 mr-2 flex-shrink-0 ${activePage === 'categories' ? 'text-white' : 'text-slate-400'}`} />
                           <span className="truncate">Categories & Sub-Categories</span>
                         </button>
                       </>
@@ -147,11 +147,11 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
               key={item.id}
               onClick={() => setActivePage(item.id)}
               className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-250 cursor-pointer group ${isActive
-                ? 'bg-white/15 text-white shadow-md shadow-black/5'
-                : 'text-emerald-100/85 hover:bg-white/5 hover:text-white'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/15'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-700 hover:shadow-sm'
                 }`}
             >
-              <Icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-emerald-300 group-hover:text-white'}`} />
+              <Icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-600'}`} />
               <span className="truncate">{item.name}</span>
             </button>
           );
@@ -159,21 +159,21 @@ export const Sidebar = ({ activePage, setActivePage, onLogout }) => {
       </nav>
 
       {/* User Info / Bottom Section */}
-      <div className="p-4 border-t border-emerald-850 bg-emerald-950/30">
+      <div className="p-4 border-t border-slate-200 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center font-bold text-white shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-bold text-emerald-600">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white leading-tight">{user.name}</p>
-              <p className="text-[10px] text-emerald-200/80 font-medium mt-0.5">{user.email}</p>
+              <p className="text-sm font-semibold text-slate-800 leading-tight">{user.name}</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">{user.email}</p>
             </div>
           </div>
           <button
             onClick={onLogout}
             title="Logout"
-            className="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer"
+            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-200 cursor-pointer"
           >
             <LogOut className="w-5 h-5" />
           </button>

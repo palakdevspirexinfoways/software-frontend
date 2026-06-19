@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../components/Toast';
 import { api } from '../services/api';
 import {
   ShoppingCart,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export const Reports = () => {
+  const { showToast, ToastContainer } = useToast();
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState({
     sales: {
@@ -64,7 +66,7 @@ export const Reports = () => {
         const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
         const completedOrders = invoices.length;
         const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
-        
+
         // Financials (Derived roughly from Sales for demonstration if no explicit API)
         const netProfit = totalRevenue * 0.15; // Rough 15% margin example
 
@@ -141,10 +143,12 @@ export const Reports = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('Export successful!', 'success');
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12 relative">
+      <ToastContainer />
       {/* Top Title/Sub Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>

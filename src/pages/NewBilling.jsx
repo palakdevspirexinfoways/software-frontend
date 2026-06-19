@@ -102,10 +102,15 @@ export const NewBilling = ({ onBack, draftData }) => {
     let tax = 0;
 
     items.forEach(item => {
-      const itemSubtotal = item.qty * item.price;
-      const itemDiscount = itemSubtotal * (item.disc / 100);
+      const qty = parseFloat(item.qty) || 0;
+      const price = parseFloat(item.price) || 0;
+      const disc = parseFloat(item.disc) || 0;
+      const taxPct = parseFloat(item.tax) || 0;
+
+      const itemSubtotal = qty * price;
+      const itemDiscount = itemSubtotal * (disc / 100);
       const taxableAmount = itemSubtotal - itemDiscount;
-      const itemTax = taxableAmount * (item.tax / 100);
+      const itemTax = taxableAmount * (taxPct / 100);
 
       subtotal += itemSubtotal;
       discount += itemDiscount;
@@ -113,7 +118,7 @@ export const NewBilling = ({ onBack, draftData }) => {
     });
 
     const grandTotal = subtotal - discount + tax;
-    const pendingBalance = Math.max(0, grandTotal - amountReceived);
+    const pendingBalance = Math.max(0, grandTotal - (parseFloat(amountReceived) || 0));
 
     setSummary({
       subtotal,
@@ -131,6 +136,12 @@ export const NewBilling = ({ onBack, draftData }) => {
   const handleRemoveItemRow = (id) => {
     if (items.length === 1) return; // Keep at least one row
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const preventInvalidNumberInput = (e) => {
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+    }
   };
 
   const handleItemChange = (id, field, value) => {
@@ -321,7 +332,10 @@ export const NewBilling = ({ onBack, draftData }) => {
         </div>
 
         <div className="flex items-center space-x-2.5">
-          <button className="flex items-center space-x-1.5 px-4 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer">
+          <button 
+            onClick={() => showToast('Export successful!', 'success')}
+            className="flex items-center space-x-1.5 px-4 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+          >
             <FileDown className="w-4 h-4" />
             <span>Export PDF</span>
           </button>
@@ -511,8 +525,9 @@ export const NewBilling = ({ onBack, draftData }) => {
                         <input
                           type="number"
                           min="1"
-                          value={item.qty}
-                          onChange={(e) => handleItemChange(item.id, 'qty', parseInt(e.target.value) || 1)}
+                          value={item.qty === 0 ? '' : item.qty}
+                          onChange={(e) => handleItemChange(item.id, 'qty', e.target.value)}
+                          onKeyDown={preventInvalidNumberInput}
                           className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none text-center"
                         />
                       </td>
@@ -520,8 +535,9 @@ export const NewBilling = ({ onBack, draftData }) => {
                         <input
                           type="number"
                           min="0"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(item.id, 'price', parseFloat(e.target.value) || 0)}
+                          value={item.price === 0 ? '' : item.price}
+                          onChange={(e) => handleItemChange(item.id, 'price', e.target.value)}
+                          onKeyDown={preventInvalidNumberInput}
                           className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none text-right"
                         />
                       </td>
@@ -530,8 +546,9 @@ export const NewBilling = ({ onBack, draftData }) => {
                           type="number"
                           min="0"
                           max="100"
-                          value={item.disc}
-                          onChange={(e) => handleItemChange(item.id, 'disc', parseFloat(e.target.value) || 0)}
+                          value={item.disc === 0 ? '' : item.disc}
+                          onChange={(e) => handleItemChange(item.id, 'disc', e.target.value)}
+                          onKeyDown={preventInvalidNumberInput}
                           className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none text-center"
                         />
                       </td>
@@ -611,8 +628,9 @@ export const NewBilling = ({ onBack, draftData }) => {
               <input
                 type="number"
                 min="0"
-                value={amountReceived}
-                onChange={(e) => setAmountReceived(parseFloat(e.target.value) || 0)}
+                value={amountReceived === 0 ? '' : amountReceived}
+                onChange={(e) => setAmountReceived(e.target.value)}
+                onKeyDown={preventInvalidNumberInput}
                 placeholder="0"
                 className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold text-right focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500"
               />

@@ -29,11 +29,8 @@ export const Categories = () => {
   const [categoryForm, setCategoryForm] = useState({
     id: null,
     name: '',
-    subCategories: [],
-    productsCount: 0,
     status: 'Active'
   });
-  const [subCategoryInput, setSubCategoryInput] = useState('');
 
   // Delete Confirm State
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -77,10 +74,7 @@ export const Categories = () => {
   // Search Filter
   const filteredCategories = categories.filter(c => {
     const term = searchTerm.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(term) ||
-      (c.subCategories && c.subCategories.some(sub => sub.toLowerCase().includes(term)))
-    );
+    return c.name.toLowerCase().includes(term);
   });
 
   // Pagination Logic
@@ -101,11 +95,8 @@ export const Categories = () => {
     setCategoryForm({
       id: null,
       name: '',
-      subCategories: [],
-      productsCount: 0,
       status: 'Active'
     });
-    setSubCategoryInput('');
     setModalType('add');
     setIsModalOpen(true);
   };
@@ -114,41 +105,13 @@ export const Categories = () => {
     setCategoryForm({
       id: category.id,
       name: category.name,
-      subCategories: [...category.subCategories],
-      productsCount: category.productsCount,
       status: category.status
     });
-    setSubCategoryInput('');
     setModalType('edit');
     setIsModalOpen(true);
   };
 
-  // Add/Remove Tags in Sub-categories
-  const handleAddSubCategory = (e) => {
-    e.preventDefault();
-    const cleanTag = subCategoryInput.trim();
-    if (cleanTag && !categoryForm.subCategories.includes(cleanTag)) {
-      setCategoryForm({
-        ...categoryForm,
-        subCategories: [...categoryForm.subCategories, cleanTag]
-      });
-      setSubCategoryInput('');
-    }
-  };
 
-  const handleSubCategoryKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      handleAddSubCategory(e);
-    }
-  };
-
-  const handleRemoveSubCategory = (tagToRemove) => {
-    setCategoryForm({
-      ...categoryForm,
-      subCategories: categoryForm.subCategories.filter(tag => tag !== tagToRemove)
-    });
-  };
 
   // Handle Submit Form
   const handleSubmitForm = async (e) => {
@@ -158,8 +121,6 @@ export const Categories = () => {
     try {
       const payload = {
         name: categoryForm.name.trim(),
-        subCategories: categoryForm.subCategories,
-        productsCount: parseInt(categoryForm.productsCount) || 0,
         status: categoryForm.status
       };
 
@@ -245,15 +206,8 @@ export const Categories = () => {
                 setCurrentPage(1);
               }}
               placeholder="Search..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all duration-200"
             />
           </div>
-
-          {/* Right View button */}
-          <button className="flex items-center space-x-1.5 px-3.5 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm">
-            <Eye className="w-3.5 h-3.5 text-slate-550" />
-            <span>View</span>
-          </button>
         </div>
 
         {/* Table */}
@@ -275,18 +229,8 @@ export const Categories = () => {
                     <ChevronsUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3.5 px-4 w-[40%]">
-                  <div className="flex items-center space-x-1 cursor-pointer select-none">
-                    <span>SUB CATEGORIES</span>
-                    <ChevronsUpDown className="w-3 h-3 text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3.5 px-4">
-                  <div className="flex items-center space-x-1 cursor-pointer select-none">
-                    <span>PRODUCTS COUNT</span>
-                    <ChevronsUpDown className="w-3 h-3 text-slate-400" />
-                  </div>
-                </th>
+
+
                 <th className="py-3.5 px-4">
                   <div className="flex items-center space-x-1 cursor-pointer select-none">
                     <span>STATUS</span>
@@ -319,28 +263,9 @@ export const Categories = () => {
                       {category.name}
                     </td>
 
-                    {/* Sub Categories Tags */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-wrap gap-1.5 max-w-md">
-                        {category.subCategories && category.subCategories.length > 0 ? (
-                          category.subCategories.map((tag, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold border border-slate-200/40"
-                            >
-                              {tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-slate-400 text-[10px] italic">No subcategories</span>
-                        )}
-                      </div>
-                    </td>
 
-                    {/* Products Count */}
-                    <td className="py-3.5 px-4 text-slate-500 font-bold">
-                      {category.productsCount}
-                    </td>
+
+
 
                     {/* Status Badge */}
                     <td className="py-3.5 px-4">
@@ -466,83 +391,19 @@ export const Categories = () => {
                 />
               </div>
 
-              {/* Sub Categories Tag Input */}
+
+
+              {/* Status Selection */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sub Categories</label>
-
-                {/* Input with Add button */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={subCategoryInput}
-                    onChange={(e) => setSubCategoryInput(e.target.value)}
-                    onKeyDown={handleSubCategoryKeyDown}
-                    placeholder="Type subcategory & press Enter or comma"
-                    className="flex-1 px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddSubCategory}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                {/* Subcategory Tag List below input */}
-                <div className="pt-2">
-                  <span className="text-[10px] text-slate-400 block mb-1.5 font-bold">Added Subcategories:</span>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 border border-slate-100 rounded-xl bg-slate-50/50 min-h-[50px] items-center">
-                    {categoryForm.subCategories.length > 0 ? (
-                      categoryForm.subCategories.map((tag, i) => (
-                        <span
-                          key={i}
-                          className="flex items-center space-x-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg shadow-sm"
-                        >
-                          <span>{tag}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSubCategory(tag)}
-                            className="text-slate-400 hover:text-rose-500 transition-colors p-0.5 rounded"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic pl-1">No subcategories added yet.</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status and Products Count row */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Status Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status *</label>
-                  <select
-                    value={categoryForm.status}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, status: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-700 font-bold focus:outline-none cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-
-                {/* Products Count */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Products Count</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={categoryForm.productsCount}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, productsCount: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
-                  />
-                </div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status *</label>
+                <select
+                  value={categoryForm.status}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, status: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-700 font-bold focus:outline-none cursor-pointer"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
               </div>
 
               {/* Modal Actions */}
@@ -577,7 +438,7 @@ export const Categories = () => {
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-              Are you sure you want to delete this category? This action cannot be undone and will remove all associated subcategory mapping records from this view.
+              Are you sure you want to delete this category? This action cannot be undone.
             </p>
 
             <div className="flex justify-end items-center space-x-3 pt-2">

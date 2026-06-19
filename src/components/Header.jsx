@@ -3,7 +3,7 @@ import { User } from 'lucide-react';
 
 export const Header = () => {
   return (
-    <header className="fixed top-0 right-0 left-64 h-16 bg-white border-b border-slate-100 flex items-center justify-end px-8 z-10">
+    <header className="fixed top-0 right-0 left-64 h-16 bg-white border-b border-slate-100 flex items-center justify-end px-8 z-10 shadow-sm">
       {/* Right Actions */}
       <div className="flex items-center space-x-6">
         {/* User Status / Quick Profile Info */}

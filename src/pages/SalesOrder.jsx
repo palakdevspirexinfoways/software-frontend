@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useToast } from '../components/Toast';
 import { api } from '../services/api';
 import {
   Search,
@@ -34,6 +35,7 @@ const paymentColors = {
 };
 
 export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
+  const { showToast, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState('invoices');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -56,15 +58,29 @@ export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
       setLoading(true);
       const data = await api.get('/invoices');
       if (Array.isArray(data)) {
-        setInvoices(data.map(inv => ({
-          ...inv,
-          id: inv.invoiceId, // JSX expects id
-          issueDate: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-          dueDate: inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-          total: inv.grandTotal,
-          paid: inv.amountReceived || 0,
-          pending: Math.max(0, inv.grandTotal - (inv.amountReceived || 0)) || null,
-        })));
+        setInvoices(data.map(inv => {
+          const grandTotal = inv.grandTotal || 0;
+          const paid = inv.amountReceived || 0;
+          const pending = Math.max(0, grandTotal - paid);
+          
+          let computedPayment = inv.payment || 'Pending';
+          if (computedPayment !== 'Draft') {
+            if (pending < 0.01 && grandTotal > 0) computedPayment = 'Paid';
+            else if (paid > 0 && pending >= 0.01 && computedPayment !== 'Overdue') computedPayment = 'Partial';
+            else if (paid === 0 && computedPayment !== 'Overdue') computedPayment = 'Pending';
+          }
+
+          return {
+            ...inv,
+            id: inv.invoiceId, // JSX expects id
+            issueDate: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+            dueDate: inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+            total: grandTotal,
+            paid: paid,
+            pending: pending || null,
+            payment: computedPayment,
+          };
+        }));
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -159,11 +175,22 @@ export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
     if (!editingInvoice) return;
     setSaving(true);
     try {
+      const amountReceived = parseFloat(editForm.amountReceived) || 0;
+      const grandTotal = editingInvoice.total || 0;
+      const pendingAmt = Math.max(0, grandTotal - amountReceived);
+      
+      let computedPayment = editForm.payment;
+      if (computedPayment !== 'Draft') {
+        if (pendingAmt < 0.01 && grandTotal > 0) computedPayment = 'Paid';
+        else if (amountReceived > 0 && pendingAmt >= 0.01 && computedPayment !== 'Overdue') computedPayment = 'Partial';
+        else if (amountReceived === 0 && computedPayment !== 'Overdue') computedPayment = 'Pending';
+      }
+
       const payload = {
         delivery: editForm.delivery,
-        payment: editForm.payment,
+        payment: computedPayment,
         paymentMethod: editForm.paymentMethod,
-        amountReceived: parseFloat(editForm.amountReceived) || 0,
+        amountReceived: amountReceived,
         notes: editForm.notes,
       };
       await api.put(`/invoices/${editingInvoice.id}`, payload);
@@ -191,7 +218,7 @@ export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
 
   // Export to CSV
   const handleExportCSV = () => {
-    if (filteredInvoices.length === 0) return alert('No records to export');
+    if (filteredInvoices.length === 0) return showToast('No records to export', 'error');
 
     const headers = ['Invoice ID', 'Client', 'Phone', 'Issue Date', 'Due Date', 'Total', 'Paid', 'Pending', 'Payment Status', 'Delivery Status'];
     const rows = filteredInvoices.map(inv => [
@@ -217,6 +244,7 @@ export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    showToast('Export successful!', 'success');
   };
 
   const buildInvoiceHTML = (detail, autoPrint = true) => {
@@ -289,7 +317,8 @@ export const SalesOrder = ({ onCreateInvoice, onViewDrafts }) => {
   };
 
   return (
-    <div className="space-y-5 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in relative">
+      <ToastContainer />
 
       {/* Header */}
       <div className="flex items-center justify-between">

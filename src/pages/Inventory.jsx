@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useToast } from '../components/Toast';
 import { api } from '../services/api';
 import {
   Search,
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react';
 
 export const Inventory = () => {
+  const { showToast, ToastContainer } = useToast();
   const [inventory, setInventory] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +67,12 @@ export const Inventory = () => {
       console.error('Error fetching inventory:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const preventInvalidNumberInput = (e) => {
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
     }
   };
 
@@ -117,8 +125,8 @@ export const Inventory = () => {
   const lowStockAlerts = inventory.filter(item => item.quantity < 10 && item.quantity > 0).length;
   const deadStockItems = inventory.filter(item => item.status === 'Dead Stock').length;
 
-  const uniqueCategories = ['All', ...new Set(inventory.map(item => item.category))];
-  const uniqueWarehouses = ['All', ...new Set(inventory.map(item => item.warehouse))];
+  const uniqueCategories = ['All', ...new Set(inventory.map(item => item.category).filter(Boolean))];
+  const uniqueWarehouses = ['All', ...new Set(inventory.map(item => item.warehouse).filter(Boolean))];
 
   // Search and Double Filters
   const filteredInventory = inventory.filter(item => {
@@ -159,6 +167,7 @@ export const Inventory = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('Export successful!', 'success');
   };
 
   // Open Form Helpers
@@ -231,8 +240,8 @@ export const Inventory = () => {
         }
       });
       
-      if (itemsToSubmit.length === 0) {
-        alert("Please enter a quantity for at least one variant.");
+      if (hasVariants && hasNoQuantities) {
+        showToast("Please enter a quantity for at least one variant.", 'error');
         return;
       }
       
@@ -241,8 +250,8 @@ export const Inventory = () => {
         fetchInventory();
         setIsModalOpen(false);
       } catch (error) {
-        console.error('Error saving bulk inventory:', error);
-        alert(error.message || 'Error saving inventory');
+        console.error('Error saving inventory:', error);
+        showToast(error.message || 'Error saving inventory', 'error');
       }
       return;
     }
@@ -275,19 +284,22 @@ export const Inventory = () => {
 
     try {
       if (modalType === 'add') {
-        if (inventory.some(item => item.sku.toLowerCase() === itemData.sku.toLowerCase())) {
-          alert("An item with this SKU already exists!");
+        const exists = inventory.some(item => item.sku.toLowerCase() === itemData.sku.toLowerCase());
+        if (exists) {
+          showToast("An item with this SKU already exists!", 'error');
           return;
         }
         await api.post('/inventory', itemData);
       } else {
         await api.put(`/inventory/${itemForm.sku}`, itemData);
       }
+      showToast(modalType === 'add' ? 'Inventory item added!' : 'Inventory item updated!', 'success');
       fetchInventory();
       setIsModalOpen(false);
+      resetForm();
     } catch (error) {
       console.error('Error saving inventory item:', error);
-      alert(error.message || 'Error saving inventory item');
+      showToast(error.message || 'Error saving inventory item', 'error');
     }
   };
 
@@ -316,7 +328,9 @@ export const Inventory = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in relative pb-12">
+      <ToastContainer />
+
       {/* Top Title/Sub Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -370,12 +384,12 @@ export const Inventory = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Low Stock Alerts</p>
-            <p className="text-2xl font-black text-rose-600">{lowStockAlerts} Items</p>
-            <span className="inline-flex items-center text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">
+            <p className="text-2xl font-black text-emerald-600">{lowStockAlerts} Items</p>
+            <span className="inline-flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
               Require immediate restock
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <AlertTriangle className="w-6 h-6" />
           </div>
         </div>
@@ -395,22 +409,22 @@ export const Inventory = () => {
 
       {/* Critical Stock Alert Banner */}
       {inventory.some(item => item.quantity < 10 && item.quantity > 0) && (
-        <div className="bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200/60 rounded-2xl p-4 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+        <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
           <div className="flex items-start gap-4">
-            <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl flex-shrink-0 animate-pulse">
+            <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl flex-shrink-0 animate-pulse">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-extrabold text-rose-800 tracking-tight">Attention: Low Stock Alert!</h3>
-              <p className="text-xs text-rose-600/80 mt-0.5 font-medium mb-3">
+              <h3 className="text-sm font-extrabold text-emerald-800 tracking-tight">Attention: Low Stock Alert!</h3>
+              <p className="text-xs text-emerald-600/80 mt-0.5 font-medium mb-3">
                 The following items have dropped below 10 units and require immediate restocking.
               </p>
               <div className="flex flex-wrap gap-2">
                 {inventory.filter(item => item.quantity < 10 && item.quantity > 0).map(item => (
-                  <div key={item.sku} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-100 rounded-lg shadow-sm">
+                  <div key={item.sku} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-100 rounded-lg shadow-sm">
                     <span className="text-[11px] font-bold text-slate-700">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700">{item.quantity} left</span>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">{item.quantity} left</span>
                   </div>
                 ))}
               </div>
@@ -557,8 +571,8 @@ export const Inventory = () => {
 
                   const statusColors = (s) => ({
                     'In Stock': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                    'Low Stock': 'bg-amber-50 text-amber-700 border-amber-100',
-                    'Out of Stock': 'bg-rose-50 text-rose-700 border-rose-100',
+                    'Low Stock': 'bg-emerald-50/50 text-emerald-500 border-emerald-100',
+                    'Out of Stock': 'bg-slate-100 text-slate-500 border-slate-200',
                     'Dead Stock': 'bg-slate-50 text-slate-600 border-slate-200',
                   }[s] || 'bg-slate-50 text-slate-600 border-slate-200');
 
@@ -815,6 +829,7 @@ export const Inventory = () => {
                                     min="0"
                                     placeholder="Qty"
                                     value={variantQuantities[variantName] !== undefined ? variantQuantities[variantName] : ''}
+                                    onKeyDown={preventInvalidNumberInput}
                                     onChange={(e) => setVariantQuantities({ ...variantQuantities, [variantName]: e.target.value })}
                                     className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-center focus:outline-none focus:border-emerald-500"
                                   />
@@ -927,7 +942,8 @@ export const Inventory = () => {
                       type="number"
                       required
                       min="0"
-                      value={itemForm.quantity}
+                      value={itemForm.quantity === 0 ? '' : itemForm.quantity}
+                      onKeyDown={preventInvalidNumberInput}
                       onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
                       placeholder="0"
                       className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
@@ -942,7 +958,8 @@ export const Inventory = () => {
                     type="number"
                     required
                     min="0"
-                    value={itemForm.unitPrice}
+                    value={itemForm.unitPrice === 0 ? '' : itemForm.unitPrice}
+                    onKeyDown={preventInvalidNumberInput}
                     onChange={(e) => setItemForm({ ...itemForm, unitPrice: e.target.value })}
                     placeholder="e.g. 1500"
                     className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"

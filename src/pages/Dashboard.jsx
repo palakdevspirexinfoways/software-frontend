@@ -73,15 +73,27 @@ export const Dashboard = ({ onManageOrders }) => {
   }, [allInvoices, appliedDateRange]);
 
   const recentOrders = useMemo(() => {
-    return filteredInvoices.slice(0, 5).map(inv => ({
-      id: inv.invoiceId,
-      customer: inv.client,
-      item: inv.items && inv.items.length > 0 ? inv.items.map(item => item.product).join(', ') : 'No items',
-      price: '₹' + inv.grandTotal.toLocaleString('en-IN'),
-      status: inv.delivery || 'Processing',
-      payment: inv.payment || 'Pending',
-      date: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-    }));
+    return filteredInvoices.slice(0, 5).map(inv => {
+      const grandTotal = inv.grandTotal || 0;
+      const paid = inv.amountReceived || 0;
+      const pending = Math.max(0, grandTotal - paid);
+      let computedPayment = inv.payment || 'Pending';
+      if (computedPayment !== 'Draft') {
+        if (pending < 0.01 && grandTotal > 0) computedPayment = 'Paid';
+        else if (paid > 0 && pending >= 0.01 && computedPayment !== 'Overdue') computedPayment = 'Partial';
+        else if (paid === 0 && computedPayment !== 'Overdue') computedPayment = 'Pending';
+      }
+
+      return {
+        id: inv.invoiceId,
+        customer: inv.client,
+        item: inv.items && inv.items.length > 0 ? inv.items.map(item => item.product).join(', ') : 'No items',
+        price: '₹' + grandTotal.toLocaleString('en-IN'),
+        status: inv.delivery || 'Processing',
+        payment: computedPayment,
+        date: inv.issueDate ? new Date(inv.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+      };
+    });
   }, [filteredInvoices]);
 
   const stats = useMemo(() => {
@@ -95,7 +107,7 @@ export const Dashboard = ({ onManageOrders }) => {
         id: 'sales',
         title: 'Total Sales',
         value: `${salesUnits.toLocaleString('en-IN')} units`,
-        change: isFiltered ? 'Filtered' : 'Live',
+        change: isFiltered ? 'Filtered' : '',
         isPositive: true,
         icon: ShoppingBag,
         color: 'text-emerald-600 bg-emerald-50 border-emerald-100'
@@ -104,28 +116,28 @@ export const Dashboard = ({ onManageOrders }) => {
         id: 'revenue',
         title: 'Total Revenue',
         value: '₹' + revenue.toLocaleString('en-IN'),
-        change: isFiltered ? 'Filtered' : 'Live',
+        change: isFiltered ? 'Filtered' : '',
         isPositive: true,
         icon: DollarSign,
-        color: 'text-teal-600 bg-teal-50 border-teal-100'
+        color: 'text-emerald-500 bg-emerald-50 border-emerald-100'
       },
       {
         id: 'customers',
         title: 'Total Customers',
         value: `${uniqueCustomers.toLocaleString('en-IN')} users`,
-        change: isFiltered ? 'Filtered' : 'Live',
+        change: isFiltered ? 'Filtered' : '',
         isPositive: true,
         icon: Users,
-        color: 'text-emerald-700 bg-emerald-50/70 border-emerald-100'
+        color: 'text-emerald-500 bg-emerald-50 border-emerald-100'
       },
       {
         id: 'refunds',
         title: 'Total Products',
         value: `${allProductsCount.toLocaleString('en-IN')} items`,
-        change: 'Live',
+        change: '',
         isPositive: true,
         icon: RotateCcw,
-        color: 'text-slate-600 bg-slate-50 border-slate-200'
+        color: 'text-emerald-500 bg-emerald-50 border-emerald-100'
       }
     ];
   }, [filteredInvoices, appliedDateRange, allProductsCount]);
@@ -149,6 +161,40 @@ export const Dashboard = ({ onManageOrders }) => {
     const custCount = new Set(filteredInvoices.map(inv => inv.client)).size;
     const retCount = filteredInvoices.filter(inv => inv.delivery === 'Cancelled').length;
 
+    const renderBarChart = (data, labels, valueMultiplier = 1) => {
+      const sorted = [...data].sort((a,b) => b - a);
+      const max = sorted[0];
+      const secondMax = sorted[1] || max;
+      const thirdMax = sorted[2] || secondMax;
+      
+      return (
+        <div className="h-64 w-full bg-white rounded-2xl flex items-end justify-between px-6 py-6 border border-slate-50">
+          {data.map((val, i) => {
+            const isHighest = val === max;
+            const isSecond = val === secondMax && !isHighest;
+            const isThird = val === thirdMax && !isHighest && !isSecond;
+            const isSolid = isHighest || isSecond || isThird;
+            
+            return (
+              <div key={i} className="flex flex-col items-center gap-4 w-full group">
+                <div 
+                  style={{ 
+                    height: `${Math.min(100, Math.max(10, val * valueMultiplier))}%`,
+                    backgroundSize: '12px 12px',
+                    backgroundImage: !isSolid ? 'repeating-linear-gradient(45deg, #e2e8f0 0, #e2e8f0 2px, transparent 2px, transparent 6px)' : 'none',
+                    backgroundColor: isHighest ? '#124C36' : (isSecond ? '#388E6D' : (isThird ? '#86EFAC' : 'transparent')),
+                    border: !isSolid ? '2px solid #e2e8f0' : 'none'
+                  }} 
+                  className="w-12 lg:w-16 rounded-full transition-all duration-500 cursor-pointer shadow-sm group-hover:scale-105"
+                ></div>
+                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{labels[i]}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
     switch (activeTab) {
       case 'sales':
         return (
@@ -162,15 +208,7 @@ export const Dashboard = ({ onManageOrders }) => {
                 <TrendingUp className="w-3.5 h-3.5 mr-1" /> Total: {salesCount}
               </span>
             </div>
-            <div className="h-64 w-full bg-slate-50/50 rounded-2xl relative overflow-hidden flex items-end p-2 border border-slate-100">
-              <svg className="absolute inset-0 w-full h-56" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <path d="M 0 100 L 0 80 Q 15 50 30 65 T 60 35 T 90 20 L 100 10 L 100 100 Z" fill="#10b981" fillOpacity="0.06" />
-                <path d="M 0 80 Q 15 50 30 65 T 60 35 T 90 20 L 100 10" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-              <div className="flex justify-between w-full text-[10px] text-slate-400 font-bold px-4 z-10">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-              </div>
-            </div>
+            {renderBarChart([15, 25, 45, 80, 60, 90, 75], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])}
           </div>
         );
       case 'revenue':
@@ -181,19 +219,11 @@ export const Dashboard = ({ onManageOrders }) => {
                 <h4 className="text-sm font-bold text-slate-800">Revenue Growth Trend</h4>
                 <p className="text-xs text-slate-400">Earnings generated</p>
               </div>
-              <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg flex items-center">
+              <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center">
                 <TrendingUp className="w-3.5 h-3.5 mr-1" /> Total: ₹{revCount.toLocaleString('en-IN')}
               </span>
             </div>
-            <div className="h-64 w-full bg-slate-50/50 rounded-2xl relative overflow-hidden flex items-end p-2 border border-slate-100">
-              <svg className="absolute inset-0 w-full h-56" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <path d="M 0 100 L 0 75 Q 20 60 40 45 T 80 20 L 100 5 L 100 100 Z" fill="#0d9488" fillOpacity="0.06" />
-                <path d="M 0 75 Q 20 60 40 45 T 80 20 L 100 5" fill="none" stroke="#0f766e" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-              <div className="flex justify-between w-full text-[10px] text-slate-400 font-bold px-4 z-10">
-                <span>Week 1</span><span>Week 2</span><span>Week 3</span><span>Week 4</span>
-              </div>
-            </div>
+            {renderBarChart([40, 60, 50, 90], ['W1', 'W2', 'W3', 'W4'])}
           </div>
         );
       case 'customers':
@@ -208,14 +238,7 @@ export const Dashboard = ({ onManageOrders }) => {
                 <Users className="w-3.5 h-3.5 mr-1" /> Total: {custCount}
               </span>
             </div>
-            <div className="h-64 w-full bg-slate-50/50 rounded-2xl flex items-end justify-between px-8 py-4 border border-slate-100">
-              {[30, 45, custCount > 0 ? 60 : 10, 40, 75, 90, 85].map((val, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 w-full">
-                  <div style={{ height: `${val}%` }} className="w-5.5 bg-emerald-600 rounded-t-lg transition-all duration-500 hover:opacity-85 cursor-pointer"></div>
-                  <span className="text-[10px] text-slate-400 font-bold">{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</span>
-                </div>
-              ))}
-            </div>
+            {renderBarChart([30, 45, custCount > 0 ? 60 : 10, 40, 75, 90, 85], ['M', 'T', 'W', 'T', 'F', 'S', 'S'])}
           </div>
         );
       case 'refunds':
@@ -226,18 +249,11 @@ export const Dashboard = ({ onManageOrders }) => {
                 <h4 className="text-sm font-bold text-slate-800">Refund Processing Log</h4>
                 <p className="text-xs text-slate-400">Total refunded orders</p>
               </div>
-              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg flex items-center">
+              <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center">
                 <TrendingDown className="w-3.5 h-3.5 mr-1" /> Total: {retCount}
               </span>
             </div>
-            <div className="h-64 w-full bg-slate-50/50 rounded-2xl flex items-end justify-between px-8 py-4 border border-slate-100">
-              {[15, 20, retCount > 0 ? 30 : 10, 5, 8, 12, 6].map((val, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 w-full">
-                  <div style={{ height: `${val * 4}%` }} className="w-5.5 bg-slate-400/80 rounded-t-lg hover:bg-emerald-600/80 transition-colors duration-200 cursor-pointer"></div>
-                  <span className="text-[10px] text-slate-400 font-bold">{['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'][i]}</span>
-                </div>
-              ))}
-            </div>
+            {renderBarChart([15, 20, retCount > 0 ? 30 : 10, 5, 8, 12, 6], ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'], 3)}
           </div>
         );
       default:
@@ -299,12 +315,14 @@ export const Dashboard = ({ onManageOrders }) => {
                 </span>
                 <div className="flex items-baseline space-x-2">
                   <span className="text-2xl font-bold tracking-tight">{stat.value}</span>
-                  <span className={`flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected
-                      ? 'text-white bg-white/20'
-                      : 'text-emerald-750 bg-emerald-50'
-                    }`}>
-                    {stat.change}
-                  </span>
+                  {stat.change && (
+                    <span className={`flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected
+                        ? 'text-white bg-white/20'
+                        : 'text-emerald-750 bg-emerald-50'
+                      }`}>
+                      {stat.change}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${isSelected
@@ -352,51 +370,59 @@ export const Dashboard = ({ onManageOrders }) => {
               </button>
             </div>
 
-            {/* SVG Donut Chart */}
-            <div className="relative flex items-center justify-center h-48 my-6">
-              <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
-                {/* Background Track */}
-                <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f8fafc" strokeWidth="10" />
-                {/* Sale segment (Emerald Green) */}
-                <circle
-                  cx="50" cy="50" r="38" fill="transparent" stroke="#059669" strokeWidth="10"
-                  strokeDasharray={`${getDonutData().sale * 238.76} 238.76`}
-                  strokeDashoffset="0" strokeLinecap="round" className="transition-all duration-500"
+            {/* SVG Gauge Chart styled like Donezo */}
+            <div className="relative flex items-center justify-center h-56 my-4">
+              <svg className="w-full max-w-[280px] h-full drop-shadow-sm" viewBox="0 0 120 100">
+                <defs>
+                  <pattern id="gaugeStripe" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0" x2="0" y2="4" stroke="#cbd5e1" strokeWidth="1.5" />
+                  </pattern>
+                </defs>
+                {/* Background Striped Track (Pending) */}
+                <path 
+                  d="M 25 85 A 43 43 0 1 1 95 85" 
+                  fill="transparent" stroke="url(#gaugeStripe)" strokeWidth="18" strokeLinecap="round" 
                 />
-                {/* Distribute segment (Yellow) */}
-                <circle
-                  cx="50" cy="50" r="38" fill="transparent" stroke="#fbbf24" strokeWidth="10"
-                  strokeDasharray={`${getDonutData().distribute * 238.76} 238.76`}
-                  strokeDashoffset={`-${getDonutData().sale * 238.76}`} strokeLinecap="round" className="transition-all duration-500"
+                
+                {/* Distribute segment (Medium Green - In Progress) - Drawn first so it goes under Sale */}
+                <path 
+                  d="M 25 85 A 43 43 0 1 1 95 85" 
+                  fill="transparent" stroke="#388E6D" strokeWidth="18" strokeLinecap="round"
+                  pathLength="100" strokeDasharray={`${(getDonutData().sale + getDonutData().distribute) * 100} 100`} strokeDashoffset="0"
+                  className="transition-all duration-1000"
                 />
-                {/* Return segment (Coral) */}
-                <circle
-                  cx="50" cy="50" r="38" fill="transparent" stroke="#f87171" strokeWidth="10"
-                  strokeDasharray={`${getDonutData().return * 238.76} 238.76`}
-                  strokeDashoffset={`-${(getDonutData().sale + getDonutData().distribute) * 238.76}`} strokeLinecap="round" className="transition-all duration-500"
+
+                {/* Sale segment (Deep Green - Completed) - Drawn on top */}
+                <path 
+                  d="M 25 85 A 43 43 0 1 1 95 85" 
+                  fill="transparent" stroke="#124C36" strokeWidth="18" strokeLinecap="round"
+                  pathLength="100" strokeDasharray={`${getDonutData().sale * 100} 100`} strokeDashoffset="0"
+                  className="transition-all duration-1000"
                 />
               </svg>
 
               {/* Center Details */}
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{getDonutData().total}</span>
-                <span className="text-[11px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">Transactions</span>
+              <div className="absolute flex flex-col items-center justify-center top-[40%]">
+                <span className="text-4xl font-black text-emerald-900 tracking-tighter">
+                  {Math.round((getDonutData().sale + getDonutData().distribute) * 100)}%
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Progress</span>
               </div>
             </div>
 
             {/* Legends styled exactly like image */}
             <div className="flex items-center justify-center space-x-5 pt-3 border-t border-slate-50">
               <div className="flex items-center space-x-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-[#059669] inline-block"></span>
-                <span className="text-xs font-bold text-slate-500">Sale</span>
+                <span className="w-3 h-3 rounded-full bg-[#124C36] inline-block"></span>
+                <span className="text-[10px] font-bold text-slate-500">Sale</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-[#fbbf24] inline-block"></span>
-                <span className="text-xs font-bold text-slate-500">Distribute</span>
+                <span className="w-3 h-3 rounded-full bg-[#388E6D] inline-block"></span>
+                <span className="text-[10px] font-bold text-slate-500">Distribute</span>
               </div>
-              <div className="flex items-center space-x-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-[#f87171] inline-block"></span>
-                <span className="text-xs font-bold text-slate-500">Return</span>
+              <div className="flex items-center space-x-1.5 flex-shrink-0">
+                <div className="w-3 h-3 rounded-full border border-slate-300 flex items-center justify-center overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 3px)' }}></div>
+                <span className="text-[10px] font-bold text-slate-500">Return</span>
               </div>
             </div>
           </div>
@@ -444,10 +470,10 @@ export const Dashboard = ({ onManageOrders }) => {
                     </span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700' :
-                        order.status === 'Processing' ? 'bg-teal-50 text-teal-700' :
-                          order.status === 'Pending' ? 'bg-amber-50 text-amber-700' :
-                            'bg-rose-50 text-rose-700'
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' :
+                        order.status === 'Processing' ? 'bg-emerald-50 text-emerald-600' :
+                          order.status === 'Pending' ? 'bg-emerald-50/50 text-emerald-500' :
+                            'bg-slate-100 text-slate-500'
                       }`}>
                       {order.status === 'Delivered' && <CheckCircle2 className="w-3 h-3 mr-1" />}
                       {order.status === 'Processing' && <Clock className="w-3 h-3 mr-1" />}
