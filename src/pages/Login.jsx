@@ -13,18 +13,22 @@ export const Login = ({ onLoginSuccess }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    const enteredEmail = email.trim().toLowerCase();
+    const enteredPassword = password.trim();
+
+    // Try live API for credentials
     try {
       const response = await api.post('/auth/login', { email, password });
-      
       if (response.token) {
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response));
         onLoginSuccess();
       } else {
-        setError(response.message || 'Invalid credentials');
+        setError(response.message || 'Invalid email or password');
       }
     } catch (err) {
-      setError('Network error or invalid credentials');
+      setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,16 @@ export const Login = ({ onLoginSuccess }) => {
           <p className="text-sm font-medium text-slate-500 mt-2">Sign in to access the command center</p>
         </div>
 
+        {/* Credentials Hint - Click to Auto-Fill */}
+        <button
+          type="button"
+          onClick={() => { setEmail('admin@gmail.com'); setPassword('admin123'); }}
+          className="w-full mb-5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl p-3 text-center transition-all cursor-pointer group"
+        >
+          <p className="text-xs font-black text-emerald-700 group-hover:text-emerald-900">⚡ Click here to Auto-Fill Credentials</p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">admin@gmail.com · admin123</p>
+        </button>
+
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-5">
           {error && (
@@ -66,6 +80,7 @@ export const Login = ({ onLoginSuccess }) => {
               <input
                 type="email"
                 required
+                maxLength={100}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl text-slate-900 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400"
@@ -83,6 +98,7 @@ export const Login = ({ onLoginSuccess }) => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                maxLength={50}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-11 pr-11 py-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl text-slate-900 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400"

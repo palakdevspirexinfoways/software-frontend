@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
+import { useCRM } from '../context/CRMContext';
+import * as crmService from '../services/crmService';
 import {
   TrendingUp,
   TrendingDown,
   DollarSign,
   ShoppingBag,
   Users,
+  Users2,
+  UserCheck,
+  UserPlus,
   RotateCcw,
   Calendar,
   ArrowRight,
@@ -16,7 +21,8 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 
-export const Dashboard = ({ onManageOrders }) => {
+export const Dashboard = ({ onManageOrders, onViewCustomers }) => {
+  const { customers } = useCRM();
   const [activeTab, setActiveTab] = useState('sales');
   const [allInvoices, setAllInvoices] = useState([]);
   const [allProductsCount, setAllProductsCount] = useState(0);
@@ -335,6 +341,51 @@ export const Dashboard = ({ onManageOrders }) => {
           );
         })}
       </div>
+
+      {/* CRM Quick Stats */}
+      {(() => {
+        const now = new Date();
+        const nm = now.getMonth(), ny = now.getFullYear();
+        const active = customers.filter(c => c.status === 'Active').length;
+        const newThisMonth = customers.filter(c => {
+          const d = new Date(c.createdAt);
+          return d.getMonth() === nm && d.getFullYear() === ny;
+        }).length;
+        const totalOutstanding = allInvoices.reduce((sum, inv) => {
+          return sum + Math.max(0, (inv.grandTotal || 0) - (inv.amountReceived || 0));
+        }, 0);
+        const crmStats = [
+          { label: 'CRM Customers', value: customers.length, icon: Users2, color: 'text-teal-600 bg-teal-50' },
+          { label: 'Active Customers', value: active, icon: UserCheck, color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'New This Month', value: newThisMonth, icon: UserPlus, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Total Outstanding', value: '₹' + totalOutstanding.toLocaleString('en-IN'), icon: AlertCircle, color: 'text-rose-600 bg-rose-50' },
+        ];
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">CRM Overview</h3>
+              {onViewCustomers && (
+                <button onClick={onViewCustomers} className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer flex items-center gap-1">
+                  View All Customers <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {crmStats.map(s => (
+                <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${s.color}`}>
+                    <s.icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</p>
+                    <p className="text-base font-extrabold text-slate-800 leading-tight truncate">{s.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Main Grid: Graphs & Circular Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
